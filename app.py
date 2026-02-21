@@ -5,9 +5,11 @@ import numpy as np
 from PIL import Image
 import os
 
+# 1. إعداد واجهة الموقع
 st.set_page_config(page_title="كاشف التواقيع المتعدد", page_icon="✍️")
-st.title("🔍 فحص مجموعة تواقيع")
+st.title("🔍 نظام فحص صحة التواقيع")
 
+# 2. تحميل الموديل
 @st.cache_resource
 def load_my_model():
     model_path = 'signature_expert_model.keras'
@@ -15,22 +17,23 @@ def load_my_model():
 
 model = load_my_model()
 
-# التعديل هنا: إضافة accept_multiple_files=True
-uploaded_files = st.file_uploader("ارفع صور التواقيع...", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+# 3. التعديل الجوهري: إضافة accept_multiple_files=True
+uploaded_files = st.file_uploader("ارفع صور التواقيع (JPG/PNG)", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
 
 if uploaded_files:
-    st.write(f"عدد الصور المرفوعة: {len(uploaded_files)}")
+    st.info(f"عدد الصور المرفوعة: {len(uploaded_files)}")
     
-    # إنشاء أعمدة لعرض النتائج بشكل مرتب
+    # معالجة كل صورة على حدة
     for uploaded_file in uploaded_files:
-        with st.expander(f"تحليل الصورة: {uploaded_file.name}"):
+        # إنشاء صندوق (Expander) لكل صورة للحفاظ على ترتيب الموقع
+        with st.expander(f"نتائج فحص: {uploaded_file.name}"):
             col1, col2 = st.columns([1, 2])
             
             img = Image.open(uploaded_file)
             with col1:
-                st.image(img, use_container_width=True)
+                st.image(img, caption="التوقيع المرفوع", use_container_width=True)
             
-            # معالجة الصورة
+            # تحضير الصورة للموديل
             img_resized = img.resize((224, 224))
             img_array = image.img_to_array(img_resized) / 255.0
             img_array = np.expand_dims(img_array, axis=0)
@@ -41,10 +44,11 @@ if uploaded_files:
             
             with col2:
                 if score > 0.5:
-                    st.success(f"النتيجة: حقيقي ✅")
-                    st.progress(float(score))
-                    st.write(f"الثقة: {score*100:.1f}%")
+                    st.success(f"النتيجة: **توقيع حقيقي ✅**")
+                    st.write(f"نسبة الثقة: {score*100:.2f}%")
                 else:
-                    st.error(f"النتيجة: مزيف ❌")
-                    st.progress(float(1-score))
-                    st.write(f"الثقة: {(1-score)*100:.1f}%")
+                    st.error(f"النتيجة: **توقيع مزيف ❌**")
+                    st.write(f"نسبة الثقة: {(1-score)*100:.2f}%")
+                
+                # عرض شريط تقدم يوضح الثقة
+                st.progress(float(score) if score > 0.5 else float(1-score))
