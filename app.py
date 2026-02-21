@@ -5,51 +5,46 @@ import numpy as np
 from PIL import Image
 import os
 
-# 1. إعداد واجهة الموقع
-st.set_page_config(page_title="كاشف التواقيع", page_icon="✍️")
-st.title("🔍 نظام فحص صحة التوقيع")
+st.set_page_config(page_title="كاشف التواقيع المتعدد", page_icon="✍️")
+st.title("🔍 فحص مجموعة تواقيع")
 
-# 2. تحميل الموديل من الملف المرفوع في GitHub
 @st.cache_resource
 def load_my_model():
-    # اسم الملف كما هو موجود في مستودع GitHub الخاص بك
     model_path = 'signature_expert_model.keras'
-    
-    if not os.path.exists(model_path):
-        st.error(f"لم يتم العثور على ملف الموديل باسم {model_path} في GitHub. يرجى رفعه بجانب هذا الملف.")
-        st.stop()
-        
-    # تحميل الموديل مع إيقاف الـ compile لتجنب مشاكل الإصدارات
     return tf.keras.models.load_model(model_path, compile=False)
 
-# محاولة تشغيل الموديل
-try:
-    model = load_my_model()
-except Exception as e:
-    st.error(f"حدث خطأ أثناء تحميل الموديل: {e}")
-    st.stop()
+model = load_my_model()
 
-# 3. واجهة رفع الصور
-uploaded_file = st.file_uploader("ارفع صورة التوقيع (JPG/PNG)", type=["jpg", "png", "jpeg"])
+# التعديل هنا: إضافة accept_multiple_files=True
+uploaded_files = st.file_uploader("ارفع صور التواقيع...", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
 
-if uploaded_file:
-    img = Image.open(uploaded_file)
-    st.image(img, caption="الصورة المرفوعة", width=300)
+if uploaded_files:
+    st.write(f"عدد الصور المرفوعة: {len(uploaded_files)}")
     
-    # معالجة الصورة لتناسب الموديل
-    img_resized = img.resize((224, 224))
-    img_array = image.img_to_array(img_resized) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-    
-    # التنبؤ
-    with st.spinner('جاري التحليل...'):
-        prediction = model.predict(img_array)
-        score = prediction[0][0]
-    
-    st.divider()
-    if score > 0.5:
-        st.success(f"### النتيجة: توقيع حقيقي ✅")
-        st.write(f"نسبة الثقة: {score*100:.2f}%")
-    else:
-        st.error(f"### النتيجة: توقيع مزيف ❌")
-        st.write(f"نسبة الثقة: {(1-score)*100:.2f}%")
+    # إنشاء أعمدة لعرض النتائج بشكل مرتب
+    for uploaded_file in uploaded_files:
+        with st.expander(f"تحليل الصورة: {uploaded_file.name}"):
+            col1, col2 = st.columns([1, 2])
+            
+            img = Image.open(uploaded_file)
+            with col1:
+                st.image(img, use_container_width=True)
+            
+            # معالجة الصورة
+            img_resized = img.resize((224, 224))
+            img_array = image.img_to_array(img_resized) / 255.0
+            img_array = np.expand_dims(img_array, axis=0)
+            
+            # التنبؤ
+            prediction = model.predict(img_array, verbose=0)
+            score = prediction[0][0]
+            
+            with col2:
+                if score > 0.5:
+                    st.success(f"النتيجة: حقيقي ✅")
+                    st.progress(float(score))
+                    st.write(f"الثقة: {score*100:.1f}%")
+                else:
+                    st.error(f"النتيجة: مزيف ❌")
+                    st.progress(float(1-score))
+                    st.write(f"الثقة: {(1-score)*100:.1f}%")
